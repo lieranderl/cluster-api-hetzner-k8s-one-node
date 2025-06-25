@@ -95,8 +95,8 @@ kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/
 
 # MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
-kubectl rollout status -n metallb-system deployment/controller --timeout=5m
-kubectl rollout status -n metallb-system daemonset/speaker --timeout=5m
+kubectl rollout status -n metallb-system deployment/controller --timeout=2m
+kubectl rollout status -n metallb-system daemonset/speaker --timeout=2m
 envsubst < configs/metallb-config.yaml | kubectl apply -f -
 
 # (Optional) Hetzner CSI
@@ -117,6 +117,11 @@ envsubst < configs/cluster-issuer.yaml | kubectl apply -f -
 ---
 
 ## 🧪 Step 6: Verify. Traefik Dashboard
+```bash
+#Add ingressroute for Traefik Dashboard
+kubectl apply -f configs/traefik-dashboard-ingressroute.yaml
+```
+
 Get Traefik dashboard URL
 Replace <IP> with your cluster's external IP
 ```http://<IP>/dashboard/```

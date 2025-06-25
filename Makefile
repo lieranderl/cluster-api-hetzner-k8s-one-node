@@ -5,9 +5,9 @@ CLUSTER_ISSUER ?= configs/cluster-issuer.yaml
 
 export KUBECONFIG
 
-.PHONY: all cluster-setup cni metallb ccm csi traefik cert-manager issuer
+.PHONY: all cluster-setup cni ccm metallb csi traefik cert-manager issuer
 
-all: cluster-setup cni metallb ccm csi traefik cert-manager issuer
+all: cluster-setup cni ccm metallb csi traefik cert-manager issuer
 
 cluster-setup:
 	kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
@@ -19,8 +19,8 @@ cni:
 
 metallb:
 	kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
-	kubectl rollout status -n metallb-system deployment/controller --timeout=5m
-	kubectl rollout status -n metallb-system daemonset/speaker --timeout=5m
+	kubectl rollout status -n metallb-system deployment/controller --timeout=2m
+	kubectl rollout status -n metallb-system daemonset/speaker --timeout=2m
 	envsubst < $(METALLB_CONFIG) | kubectl apply -f -
 
 ccm:
