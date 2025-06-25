@@ -15,16 +15,7 @@ Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CA
 
 ---
 
-## 🧰 Step 1: Create Local Management Cluster
-
-```bash
-kind create cluster --name caph-mgt-cluster
-clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
-```
-
----
-
-## 🌐 Step 2: Define Hetzner Cluster Vars
+## 🌐 Step 1: Define environment variables
 
 ```bash
 export API_CLUSTER_HCLOUD_TOKEN=<YOUR_HCLOUD_TOKEN>
@@ -37,6 +28,16 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE="cax11"
 export HCLOUD_WORKER_MACHINE_TYPE="cax11"
 export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_IP_FROM_HCLOUD>
 export CERT_EMAIL=<YOUR_EMAIL>
+export CLUSTER_NAME=<CLUSTER_NAME>
+```
+
+---
+
+## 🧰 Step 2: Create Local Management Cluster
+
+```bash
+kind create cluster --name caph-mgt-cluster
+clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 ```
 
 ---
@@ -52,16 +53,26 @@ kubectl create secret generic hetzner --from-literal=hcloud=$API_CLUSTER_HCLOUD_
 ## 🚀 Step 4: Provision Cluster
 
 ```bash
-envsubst < configs/make-cluster-test-kubeconfig.yaml | kubectl apply -f -
-clusterctl get kubeconfig cluster-test > cluster-api-kubeconfig.yaml
+envsubst '${CLUSTER_NAME} ${KUBERNETES_VERSION} ${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} ${HCLOUD_WORKER_MACHINE_TYPE} ${CONTROL_PLANE_ENDPOINT_HOST} ${HCLOUD_REGION} ${SSH_KEY_NAME}'  < configs/make-cluster-hetzner-kubeconfig.yaml | kubectl apply -f -
+clusterctl get kubeconfig $CLUSTER_NAME > cluster-api-kubeconfig.yaml
 export KUBECONFIG=cluster-api-kubeconfig.yaml
 ```
 
-###
+### Check K8S status
+```bash
+kubectl get nodes -o wide
+```
 
 ---
 
 ## ⚙️ Step 5: Basic Config & Bootstrap.
+
+### Use Makefile
+```bash
+make all
+```
+
+### OR setup manually:
 
 ```bash
 # Remove default taints from control plane nodes to allow workloads on the control plane.
@@ -70,27 +81,26 @@ kubectl taint nodes --all node.cloudprovider.kubernetes.io/uninitialized-
 kubectl get nodes
 ```
 
----
-
-## 📦 Step 6: Install Essentials
-
 ```bash
 # Hetzner CCM
-helm repo add syself https://charts.syself.com/
-helm repo update syself
-helm install ccm syself/ccm-hetzner -n kube-system
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
+helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
+        --namespace kube-system \
+        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
 
 # Flannel CNI
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 
 # MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+kubectl rollout status -n metallb-system deployment/controller --timeout=5m
+kubectl rollout status -n metallb-system daemonset/speaker --timeout=5m
 envsubst < configs/metallb-config.yaml | kubectl apply -f -
 
 # (Optional) Hetzner CSI
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-helm install hcloud-csi hcloud/hcloud-csi -n kube-system
+helm upgrade --install hcloud-csi hcloud/hcloud-csi -n kube-system -f configs/csi-values.yaml
 
 # Ingress: Traefik
 helm repo add traefik https://traefik.github.io/charts
@@ -106,7 +116,7 @@ envsubst < configs/cluster-issuer.yaml | kubectl apply -f -
 
 ---
 
-## 🧪 Step 7: Verify. Traefik Dashboard
+## 🧪 Step 6: Verify. Traefik Dashboard
 Get Traefik dashboard URL
 Replace <IP> with your cluster's external IP
 ```http://<IP>/dashboard/```
@@ -119,7 +129,7 @@ Replace <IP> with your cluster's external IP
 ```bash
 # Delete workload cluster on Hetzner
 export KUBECONFIG=~/.kube/config
-kubectl delete -f configs/make-cluster-test-kubeconfig.yaml
+envsubst < configs/make-cluster-hetzner-kubeconfig.yaml| kubectl delete -f -
 
 # Delete local management cluster
 kind delete cluster --name caph-mgt-cluster

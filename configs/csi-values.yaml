@@ -1,0 +1,9 @@
+controller:
+  hcloudToken:
+    existingSecret:
+      name: hetzner
+      key: hcloud
+storageClasses:
+  - name: hcloud-volumes
+    defaultStorageClass: true
+    reclaimPolicy: Retain

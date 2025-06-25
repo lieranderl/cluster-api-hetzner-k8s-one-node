@@ -19,17 +19,20 @@ cni:
 
 metallb:
 	kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+	kubectl rollout status -n metallb-system deployment/controller --timeout=5m
+	kubectl rollout status -n metallb-system daemonset/speaker --timeout=5m
 	envsubst < $(METALLB_CONFIG) | kubectl apply -f -
 
 ccm:
-	helm repo add syself https://charts.syself.com/ || true
-	helm repo update syself
-	helm upgrade --install ccm syself/ccm-hetzner -n kube-system || true
-
-csi:
 	helm repo add hcloud https://charts.hetzner.cloud || true
 	helm repo update hcloud
-	helm upgrade --install hcloud-csi hcloud/hcloud-csi -n kube-system || true
+	helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
+            --namespace kube-system \
+            --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+            --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud || true
+
+csi:
+	helm upgrade --install hcloud-csi hcloud/hcloud-csi -n kube-system -f configs/csi-values.yaml || true
 
 traefik:
 	helm repo add traefik https://traefik.github.io/charts || true
