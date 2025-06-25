@@ -1,0 +1,28 @@
+service:
+  type: LoadBalancer
+  labels:
+    app: traefik
+    component: ingress-controller
+
+ports:
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    protocol: TCP
+
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    protocol: TCP
+
+ingressRoute:
+  dashboard:
+    enabled: true
+
+logs:
+  general:
+    level: DEBUG
