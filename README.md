@@ -27,7 +27,6 @@ Create a .env file (see .env-example) and define all required variables.
 > - **A new, pre-allocated Hetzner floating IP**
 > - **An existing IP address** already assigned to your Hetzner project
 
----
 
 ## 🧰 Step 2: Create Local Management Cluster
 
@@ -35,7 +34,7 @@ Create a .env file (see .env-example) and define all required variables.
 make management-cluster
 ```
 
----
+
 
 
 ## 🚀 Step 3: Create K8s on Hetzner
@@ -43,16 +42,16 @@ make management-cluster
 make workload-cluster
 ```
 
----
 
-## ⚙️ Step 4: Bootstrap K8s Cluster Components.
+
+## ⚙️ Step 4: Bootstrap K8s Cluster Components
 ```bash
 make workload-bootstrap
 ```
 
----
 
-## 🧪 Step 5: Verify. Access Traefik Dashboard
+
+## 🧪 Step 5 (Optional): Verify by accessing Traefik Dashboard
 ```bash
 export KUBECONFIG=workload-kubeconfig.yaml #default name for workload kubeconfig
 # Add ingressroute for Traefik Dashboard
@@ -65,17 +64,16 @@ echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 
 > **Security Note**: This exposes the dashboard publicly. For production, add authentication.
 
----
+
 
 ## 🧹 Cleanup
 
-### Delete workload cluster on Hetzner
-
+Delete workload cluster on Hetzner
 ```bash
 make delete-workload-cluster
 ```
 
-### Delete local management cluster
+Delete local management cluster
 ```bash
 make delete-management-cluster
 ```
