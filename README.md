@@ -142,6 +142,7 @@ echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 ### Delete workload cluster on Hetzner
 
 ```bash
+# export required env variables
 export API_CLUSTER_HCLOUD_TOKEN=<YOUR_HCLOUD_TOKEN>
 export SSH_KEY_NAME=<YOUR_SSH_KEY_NAME>
 export HCLOUD_REGION="fsn1"
