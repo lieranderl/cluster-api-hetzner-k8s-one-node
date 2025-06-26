@@ -1,6 +1,6 @@
 # ⚡ Small K8s on Hetzner
 
-Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CAPI) + CAPH. Useful for quick testing, dev and small projects. Inspired by `https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api`
+Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CAPI) + CAPH. Useful for quick testing, dev and small projects. Inspired by [kubernetes-on-hetzner-with-cluster-api](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api)
 
 ---
 
@@ -13,6 +13,8 @@ Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CA
 - Hetzner API token
 - SSH key in Hetzner project
 
+> **Important**: `CONTROL_PLANE_ENDPOINT_HOST` requires a pre-allocated Hetzner floating IP.
+
 ---
 
 ## 🌐 Step 1: Define environment variables
@@ -21,12 +23,9 @@ Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CA
 export API_CLUSTER_HCLOUD_TOKEN=<YOUR_HCLOUD_TOKEN>
 export SSH_KEY_NAME=<YOUR_SSH_KEY_NAME>
 export HCLOUD_REGION="fsn1"
-export CONTROL_PLANE_MACHINE_COUNT=1
-export WORKER_MACHINE_COUNT=0
 export KUBERNETES_VERSION=1.33.2
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE="cax11"
-export HCLOUD_WORKER_MACHINE_TYPE="cax11"
-export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_IP_FROM_HCLOUD>
+export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_SERVER_IP_HCLOUD>
 export CERT_EMAIL=<YOUR_EMAIL>
 export CLUSTER_NAME=<CLUSTER_NAME>
 ```
@@ -38,34 +37,32 @@ export CLUSTER_NAME=<CLUSTER_NAME>
 ```bash
 kind create cluster --name caph-mgt-cluster
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
-```
+export KUBECONFIG=~/.kube/config
 
----
+# Wait for nodes to be ready
+kubectl wait --for=condition=ready node --all --timeout=300s
 
-## 🔐 Step 3: Add Hetzner Token Secret
-
-```bash
+# Add Hetzner Token Secret
 kubectl create secret generic hetzner --from-literal=hcloud=$API_CLUSTER_HCLOUD_TOKEN
 ```
 
----
-
-## 🚀 Step 4: Provision Cluster
-
+## 🚀 Step 3: Create K8s on Hetzner
 ```bash
-envsubst '${CLUSTER_NAME} ${KUBERNETES_VERSION} ${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} ${HCLOUD_WORKER_MACHINE_TYPE} ${CONTROL_PLANE_ENDPOINT_HOST} ${HCLOUD_REGION} ${SSH_KEY_NAME}'  < configs/make-cluster-hetzner-kubeconfig.yaml | kubectl apply -f -
+# Deploy a cluster on Hetzner
+envsubst '${CLUSTER_NAME} ${KUBERNETES_VERSION} ${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} ${CONTROL_PLANE_ENDPOINT_HOST} ${HCLOUD_REGION} ${SSH_KEY_NAME}'  < configs/make-cluster-hetzner-kubeconfig.yaml | kubectl apply -f -
+
+# Wait for provisioning
+export KUBECONFIG=~/.kube/config
+kubectl wait --for=jsonpath='{.status.phase}'=Provisioned cluster/$CLUSTER_NAME --timeout=600s
+
+#  Get kubeconfig
 clusterctl get kubeconfig $CLUSTER_NAME > cluster-api-kubeconfig.yaml
 export KUBECONFIG=cluster-api-kubeconfig.yaml
 ```
 
-### Check K8S status
-```bash
-kubectl get nodes -o wide
-```
-
 ---
 
-## ⚙️ Step 5: Basic Config & Bootstrap.
+## ⚙️ Step 4: Bootstrap K8s Cluster Components.
 
 ### Use Makefile
 ```bash
@@ -79,9 +76,7 @@ make all
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 kubectl taint nodes --all node.cloudprovider.kubernetes.io/uninitialized-
 kubectl get nodes
-```
 
-```bash
 # Hetzner CCM
 helm repo add hcloud https://charts.hetzner.cloud
 helm repo update hcloud
@@ -95,8 +90,10 @@ kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/
 
 # MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+# Wait for MetalLB readiness
 kubectl rollout status -n metallb-system deployment/controller --timeout=2m
 kubectl rollout status -n metallb-system daemonset/speaker --timeout=2m
+# Apply MetalLB configuration
 envsubst < configs/metallb-config.yaml | kubectl apply -f -
 
 # (Optional) Hetzner CSI
@@ -116,26 +113,42 @@ envsubst < configs/cluster-issuer.yaml | kubectl apply -f -
 
 ---
 
-## 🧪 Step 6: Verify. Traefik Dashboard
+## 🧪 Step 6: Verify. Access Traefik Dashboard
 ```bash
-#Add ingressroute for Traefik Dashboard
+export KUBECONFIG=cluster-api-kubeconfig.yaml
+# Add ingressroute for Traefik Dashboard
 kubectl apply -f configs/traefik-dashboard-ingressroute.yaml
 ```
 
-Get Traefik dashboard URL
-Replace <IP> with your cluster's external IP
-```http://<IP>/dashboard/```
+### Get Traefik dashboard URL
+``` bash
+TRAEFIK_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
+```
 
+> **Security Note**: This exposes the dashboard publicly. For production, add authentication.
 
 ---
 
 ## 🧹 Cleanup
 
+### Delete workload cluster on Hetzner
+
 ```bash
-# Delete workload cluster on Hetzner
+export API_CLUSTER_HCLOUD_TOKEN=<YOUR_HCLOUD_TOKEN>
+export SSH_KEY_NAME=<YOUR_SSH_KEY_NAME>
+export HCLOUD_REGION="fsn1"
+export KUBERNETES_VERSION=1.33.2
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE="cax11"
+export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_SERVER_IP_HCLOUD>
+export CERT_EMAIL=<YOUR_EMAIL>
+export CLUSTER_NAME=<CLUSTER_NAME>
+
 export KUBECONFIG=~/.kube/config
 envsubst < configs/make-cluster-hetzner-kubeconfig.yaml| kubectl delete -f -
+```
 
-# Delete local management cluster
+### Delete local management cluster
+```bash
 kind delete cluster --name caph-mgt-cluster
 ```
