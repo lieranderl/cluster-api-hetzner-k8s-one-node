@@ -1,28 +1,28 @@
 #!/bin/bash
-
+#
+echo
 echo "🔍 Checking Cluster API resource readiness for cluster: $CLUSTER_NAME"
+echo "Could take several minutes..."
+echo
+
+spinner=( '.' ':' 'o' 'O' '@' '*' )
+i=0
 
 while true; do
-  echo "⏳ Running 'clusterctl describe cluster $CLUSTER_NAME'..."
   output=$(clusterctl describe cluster "$CLUSTER_NAME" --echo)
 
-  echo "📄 Parsing status from clusterctl output..."
+  cluster_ready=$(echo "$output" | grep -A1 "^Cluster/$CLUSTER_NAME" | grep -q "True" && echo "✔" || echo "✖")
+  infra_ready=$(echo "$output" | grep -A1 "ClusterInfrastructure - HetznerCluster/$CLUSTER_NAME" | grep -q "True" && echo "✔" || echo "✖")
+  cp_ready=$(echo "$output" | grep -A1 "ControlPlane - KubeadmControlPlane/$CLUSTER_NAME-control-plane" | grep -q "True" && echo "✔" || echo "✖")
 
-  # Check Cluster readiness
-  cluster_ready=$(echo "$output" | grep -A1 "^Cluster/$CLUSTER_NAME" | grep -q "True" && echo "True" || echo "False")
-  infra_ready=$(echo "$output" | grep -A1 "ClusterInfrastructure - HetznerCluster/$CLUSTER_NAME" | grep -q "True" && echo "True" || echo "False")
-  cp_ready=$(echo "$output" | grep -A1 "ControlPlane - KubeadmControlPlane/$CLUSTER_NAME-control-plane" | grep -q "True" && echo "True" || echo "False")
+  spin="${spinner[$i]}"
+  printf "\r[%s] Cluster: %s | Infra: %s | ControlPlane: %s" "$spin" "$cluster_ready" "$infra_ready" "$cp_ready"
 
-  echo "🔎 Status:"
-  echo "  - Cluster Resource ............: $cluster_ready"
-  echo "  - Infrastructure (Hetzner) ....: $infra_ready"
-  echo "  - Control Plane ...............: $cp_ready"
-
-  if [[ "$cluster_ready" == "True" && "$infra_ready" == "True" && "$cp_ready" == "True" ]]; then
-    echo "✅ All top-level Cluster API resources are READY."
+  if [[ "$cluster_ready" == "✔" && "$infra_ready" == "✔" && "$cp_ready" == "✔" ]]; then
+    echo -e "\n✅ All top-level Cluster API resources are READY."
     break
   fi
 
-  echo "⏳ Waiting for resources to become ready..."
-  sleep 10
+  i=$(( (i + 1) % ${#spinner[@]} ))
+  sleep 0.3
 done
