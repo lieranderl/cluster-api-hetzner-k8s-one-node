@@ -1,4 +1,4 @@
-# ⚡ Small K8s on Hetzner
+# ⚡ Small (all in one node) K8s cluster on Hetzner
 
 Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CAPI) + CAPH. Useful for quick testing, dev and small projects. Inspired by [kubernetes-on-hetzner-with-cluster-api](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api)
 
@@ -12,8 +12,6 @@ Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CA
 - Helm
 - Hetzner API token
 - SSH key in Hetzner project
-
-> **Important**: `CONTROL_PLANE_ENDPOINT_HOST` requires a pre-allocated Hetzner floating IP.
 
 ---
 
@@ -29,6 +27,13 @@ export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_SERVER_IP_HCLOUD>
 export CERT_EMAIL=<YOUR_EMAIL>
 export CLUSTER_NAME=<CLUSTER_NAME>
 ```
+
+> **Important:**
+> `CONTROL_PLANE_ENDPOINT_HOST` must be set to the IP address used for the Kubernetes control plane.
+> **You can use either:**
+> - **A new, pre-allocated Hetzner floating IP**
+> - **An existing IP address** already assigned to your Hetzner project
+
 
 ---
 
@@ -48,16 +53,17 @@ kubectl create secret generic hetzner --from-literal=hcloud=$API_CLUSTER_HCLOUD_
 
 ## 🚀 Step 3: Create K8s on Hetzner
 ```bash
+export KUBECONFIG=~/.kube/config
+
 # Deploy a cluster on Hetzner
 envsubst '${CLUSTER_NAME} ${KUBERNETES_VERSION} ${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} ${CONTROL_PLANE_ENDPOINT_HOST} ${HCLOUD_REGION} ${SSH_KEY_NAME}'  < configs/make-cluster-hetzner-kubeconfig.yaml | kubectl apply -f -
 
-# Wait for provisioning
-export KUBECONFIG=~/.kube/config
-kubectl wait --for=jsonpath='{.status.phase}'=Provisioned cluster/$CLUSTER_NAME --timeout=600s
+# Wait for the control plane to be ready (KubeadmControlPlane)
+scripts/cluster-status-checker.sh
 
 #  Get kubeconfig
 clusterctl get kubeconfig $CLUSTER_NAME > cluster-api-kubeconfig.yaml
-export KUBECONFIG=cluster-api-kubeconfig.yaml
+
 ```
 
 ---
@@ -66,12 +72,15 @@ export KUBECONFIG=cluster-api-kubeconfig.yaml
 
 ### Use Makefile
 ```bash
+export KUBECONFIG=cluster-api-kubeconfig.yaml
 make all
 ```
 
 ### OR setup manually:
 
 ```bash
+export KUBECONFIG=cluster-api-kubeconfig.yaml
+
 # Remove default taints from control plane nodes to allow workloads on the control plane.
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 kubectl taint nodes --all node.cloudprovider.kubernetes.io/uninitialized-
@@ -143,7 +152,9 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE="cax11"
 export CONTROL_PLANE_ENDPOINT_HOST=<EXTERNAL_SERVER_IP_HCLOUD>
 export CERT_EMAIL=<YOUR_EMAIL>
 export CLUSTER_NAME=<CLUSTER_NAME>
+```
 
+```bash
 export KUBECONFIG=~/.kube/config
 envsubst < configs/make-cluster-hetzner-kubeconfig.yaml| kubectl delete -f -
 ```
