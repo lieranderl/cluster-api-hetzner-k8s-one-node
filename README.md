@@ -76,7 +76,7 @@ export KUBECONFIG=cluster-api-kubeconfig.yaml
 make all
 ```
 
-### OR setup manually:
+### OR setup components manually:
 
 ```bash
 export KUBECONFIG=cluster-api-kubeconfig.yaml
