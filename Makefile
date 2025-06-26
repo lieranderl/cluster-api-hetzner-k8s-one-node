@@ -2,6 +2,7 @@ KUBECONFIG ?= cluster-api-kubeconfig.yaml
 METALLB_CONFIG ?= configs/metallb-config.yaml
 TRAEFIK_VALUES ?= configs/traefik-values.yaml
 CLUSTER_ISSUER ?= configs/cluster-issuer.yaml
+CSI_VALUES ?= configs/csi-values.yaml
 
 export KUBECONFIG
 
@@ -32,7 +33,7 @@ ccm:
             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud || true
 
 csi:
-	helm upgrade --install hcloud-csi hcloud/hcloud-csi -n kube-system -f configs/csi-values.yaml || true
+	helm upgrade --install hcloud-csi hcloud/hcloud-csi -n kube-system -f $(CSI_VALUES) || true
 
 traefik:
 	helm repo add traefik https://traefik.github.io/charts || true
