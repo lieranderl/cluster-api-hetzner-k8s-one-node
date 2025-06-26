@@ -127,10 +127,8 @@ envsubst < configs/cluster-issuer.yaml | kubectl apply -f -
 export KUBECONFIG=cluster-api-kubeconfig.yaml
 # Add ingressroute for Traefik Dashboard
 kubectl apply -f configs/traefik-dashboard-ingressroute.yaml
-```
 
-### Get Traefik dashboard URL
-``` bash
+# Get Traefik dashboard URL
 TRAEFIK_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 ```
