@@ -42,7 +42,7 @@ make workload-bootstrap
 
 ## 🧪 Step 4 (Optional): Verify by accessing Traefik Dashboard
 ```bash
-export KUBECONFIG=workload-kubeconfig.yaml #default name for workload kubeconfig
+export KUBECONFIG=workload-kubeconfig.yaml  # Default kubeconfig name generated for the workload cluster
 # Add ingressroute for Traefik Dashboard
 kubectl apply -f configs/traefik-dashboard-ingressroute.yaml
 
