@@ -1,8 +1,8 @@
 #!/bin/bash
-#
+
 echo
+echo "👷 Building cluster on Hetzner. Could take several minutes..."
 echo "🔍 Checking Cluster API resource readiness for cluster: $CLUSTER_NAME"
-echo "Could take several minutes..."
 echo
 
 spinner=( '.' ':' 'o' 'O' '@' '*' )

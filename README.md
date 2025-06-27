@@ -34,24 +34,13 @@ Create a .env file (see .env-example) and define all required variables.
 make management-cluster
 ```
 
-
-
-
-## 🚀 Step 3: Create K8s on Hetzner
+## 🚀 Step 3: Create and Bootstrap K8s on Hetzner
 ```bash
 make workload-cluster
-```
-
-
-
-## ⚙️ Step 4: Bootstrap K8s Cluster Components
-```bash
 make workload-bootstrap
 ```
 
-
-
-## 🧪 Step 5 (Optional): Verify by accessing Traefik Dashboard
+## 🧪 Step 4 (Optional): Verify by accessing Traefik Dashboard
 ```bash
 export KUBECONFIG=workload-kubeconfig.yaml #default name for workload kubeconfig
 # Add ingressroute for Traefik Dashboard
