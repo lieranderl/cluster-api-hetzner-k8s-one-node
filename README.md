@@ -57,12 +57,12 @@ echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 
 ## 🧹 Cleanup
 
-Delete workload cluster on Hetzner
+**Delete workload cluster on Hetzner**
 ```bash
 make delete-workload-cluster
 ```
 
-Delete local management cluster
+**Delete local management cluster**
 ```bash
 make delete-management-cluster
 ```
