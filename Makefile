@@ -35,7 +35,7 @@ management-cluster: verify-env ## Create Kind-based management cluster
 workload-cluster: verify-env ## Provision workload cluster on Hetzner
 	export KUBECONFIG=${MANAGEMENT_KUBECONFIG}
 	@echo "🚀 Creating workload cluster on Hetzner..."
-	envsubst '$${CLUSTER_NAME} $${KUBERNETES_VERSION} $${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} $${CONTROL_PLANE_ENDPOINT_HOST} $${HCLOUD_REGION} $${SSH_KEY_NAME}'  < ${MAKE_CONFIG}  | kubectl apply -f -
+	envsubst '$${CLUSTER_NAME} $${KUBERNETES_VERSION} $${CONTAINERD} $${RUNC} $${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} $${CONTROL_PLANE_ENDPOINT_HOST} $${HCLOUD_REGION} $${SSH_KEY_NAME}'  < ${MAKE_CONFIG}  | kubectl apply -f -
 	./scripts/cluster-status-checker.sh
 	clusterctl get kubeconfig ${CLUSTER_NAME} > ${WORKLOAD_KUBECONFIG}
 	@echo "✅ Workload cluster created! Kubeconfig saved to ${WORKLOAD_KUBECONFIG}"
@@ -98,7 +98,7 @@ issuer: ## Apply ClusterIssuer for Cert-Manager
 
 delete-workload-cluster: verify-env ## Tear down workload cluster
 	@echo "🗑️ Deleting workload cluster on Hetzner..."
-	envsubst '$${CLUSTER_NAME} $${KUBERNETES_VERSION} $${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} $${CONTROL_PLANE_ENDPOINT_HOST} $${HCLOUD_REGION} $${SSH_KEY_NAME}'  < ${MAKE_CONFIG} | KUBECONFIG=${MANAGEMENT_KUBECONFIG} kubectl delete -f -
+	envsubst '$${CLUSTER_NAME} $${KUBERNETES_VERSION} $${CONTAINERD} $${RUNC} $${HCLOUD_CONTROL_PLANE_MACHINE_TYPE} $${CONTROL_PLANE_ENDPOINT_HOST} $${HCLOUD_REGION} $${SSH_KEY_NAME}'  < ${MAKE_CONFIG} | KUBECONFIG=${MANAGEMENT_KUBECONFIG} kubectl delete -f -
 	@echo "✅ Workload cluster deleted."
 
 delete-management-cluster: ## Tear down management cluster
