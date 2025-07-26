@@ -39,25 +39,27 @@ make management-cluster
 
 ## 🚀 Step 3: Create and Bootstrap K8s on Hetzner
 
+- ### Create Cluster
+
 ```bash
 make workload-cluster
 ```
 
-### To use metallb, flannel CNI, Traefik:
+- ### Add and use metallb, flannel CNI, Traefik in Cluster:
 
 ```bash
 make workload-bootstrap
 ```
 
-### **OR**: [Cilium](https://cilium.io/) with kube-proxy replacement, L2Announcement, CiliumLoadBalancerIPPool and Gateway API:
+- ### **OR**: Add and use [Cilium](https://cilium.io/) with kube-proxy replacement, L2Announcement, CiliumLoadBalancerIPPool and Gateway API:
 
 ```bash
 make workload-cilium
 ```
 
-## 🧪 Step 4 (Optional): TEST. Verify by accessing Traefik Dashboard **OR** Hubble UI(in case you picked Cilium on previous step)
+## 🧪 Step 4 (Optional): TEST
 
-### Traefik test:
+### Verify by accessing Traefik Dashboard (in case you picked `workload-bootstrap` on previous step):
 
 ```bash
 export KUBECONFIG=workload-kubeconfig.yaml  # Default kubeconfig name generated for the workload cluster
@@ -69,7 +71,7 @@ TRAEFIK_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.status.loadBalanc
 echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 ```
 
-### Cilium Hubble UI expose via Gateway API test:
+### **OR** Verify by accessing Hubble UI (in case you picked `workload-cilium` on previous step):
 
 - Start
 
@@ -77,7 +79,7 @@ echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 make hubble-test-start
 ```
 
--Stop
+- Stop
 
 ```bash
 make hubble-test-stop
