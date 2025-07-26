@@ -5,6 +5,11 @@ METALLB_CONFIG ?= configs/metallb-config.yaml
 TRAEFIK_VALUES ?= configs/traefik-values.yaml
 CLUSTER_ISSUER ?= configs/cluster-issuer.yaml
 CSI_VALUES ?= configs/csi-values.yaml
+GATEWAY_API_VERSION = v1.2.0
+CILIUM_POOL?= configs/cilium-lbpool.yaml
+CILIUM_ANNOUNCEMENT?= configs/cilium-l2announcement-policy.yaml
+CILIUM_HUBBLE_EXPOSE_TEST?= configs/cilium-hubble-expose-test.yaml
+
 
 ifneq ("$(wildcard .env)","")
 	include .env
@@ -18,8 +23,11 @@ MAKEFLAGS += --no-builtin-rules
 
 .PHONY: all workload-bootstrap management-cluster remove-taints  workload-cluster cni ccm metallb csi traefik cert-manager issuer delete-workload-cluster delete-management-cluster verify-env helm-init help
 
-all: management-cluster workload-cluster remove-taints  ccm cni metallb csi traefik cert-manager issuer ## Create full cluster (management + workload + all addons)
-workload-bootstrap: remove-taints ccm cni metallb csi traefik cert-manager issuer  ## Install core components into workload cluster
+# all: management-cluster workload-cluster remove-taints  ccm cni metallb csi traefik cert-manager issuer ## Create full cluster (management + workload + all addons)
+workload-bootstrap: remove-taints ccm cni metallb csi traefik cert-manager issuer  ## Install core components, metallb, traefik, cert-manager, issuer into workload cluster
+workload-cilium: remove-taints ccm gateway-crds cilium csi cilium-pool ## Install Cilium and core components into workload cluster
+hubble-test-start: cilium-hubble-on cilium-hubble-expose-start-test ## Start Hubble test
+hubble-test-stop: cilium-hubble-expose-stop-test ## Stop Hubble test
 
 management-cluster: verify-env ## Create Kind-based management cluster
 	@echo "🧰 Creating local management cluster..."
@@ -51,11 +59,59 @@ cni: ## Install Flannel CNI
 	@echo "🌐 Installing Flannel CNI..."
 	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 
+gateway-crds: ## Install Gateway API CRDs
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_API_VERSION}/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_API_VERSION}/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_API_VERSION}/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_API_VERSION}/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${GATEWAY_API_VERSION}/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+
+
+cilium: helm-init ## Remove kube-proxy and install Cilium with Gateway API support
+	@echo "Removing kube-proxy..."
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl -n kube-system delete ds kube-proxy
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl -n kube-system delete cm kube-proxy
+	@echo "🌐 Installing Cilium (with kube-proxy replacement and Gateway API) using cilium CLI"
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium install \
+		--set kubeProxyReplacement=true \
+		--set gatewayAPI.enabled=true \
+		--set l2Announcements.enabled=true
+
+	@echo "⏳ Waiting for Cilium to be ready..."
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium status --wait
+
+
+cilium-pool: ## Create Cilium IP Pool and announce it to the cluster
+	envsubst < ${CILIUM_POOL} | KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f -
+	envsubst < ${CILIUM_ANNOUNCEMENT} | KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f -
+
+cilium-hubble-on: ## Enable Cilium Hubble and wait for it to be ready
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium hubble enable --ui
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium status --wait
+
+cilium-hubble-off: ## Disable Cilium Hubble and wait for it to be ready
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium hubble disable
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium status --wait
+
+cilium-hubble-expose-start-test:
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl apply -f ${CILIUM_HUBBLE_EXPOSE_TEST}
+		@echo "✅ Cilium Hubble exposed"
+		@echo "Getting exposed URL..."
+		@echo
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl get svc cilium-gateway-test-gateway -n kube-system -o jsonpath='{.status.loadBalancer.ingress[0].ip}' | xargs -I {} echo "http://{}:8080/?namespace=kube-system"
+
+cilium-hubble-expose-stop-test:
+		KUBECONFIG=${WORKLOAD_KUBECONFIG} kubectl delete -f ${CILIUM_HUBBLE_EXPOSE_TEST}
+
+cilium-status: ## Wait for Cilium to be ready
+	KUBECONFIG=${WORKLOAD_KUBECONFIG} cilium status --wait
+
 helm-init: ## Add Helm repos for required components
 	@echo "📦 Initializing Helm repos..."
 	helm repo add traefik https://traefik.github.io/charts || true
 	helm repo add hcloud https://charts.hetzner.cloud || true
 	helm repo add jetstack https://charts.jetstack.io || true
+	helm repo add cilium https://helm.cilium.io/ || true
 	helm repo update
 
 ccm: helm-init ## Install Hetzner Cloud Controller Manager
