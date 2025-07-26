@@ -9,24 +9,27 @@ Provision a **1-node Kubernetes cluster** on Hetzner Cloud using Cluster API (CA
 
 ## ✅ Prerequisites
 
-- Docker
-- Kind
-- `kubectl`, `clusterctl`
-- Helm
+- Docker or containerd
+- [Install `kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+- [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
+- [Install `clusterctl`](https://cluster-api.sigs.k8s.io/user/quick-start#install-clusterctl)
+- [Install `helm`](https://helm.sh/docs/intro/install/)
 - Hetzner API token
 - SSH key in Hetzner project
+- `cilium` as Cilium CLI, in case you want to use cilium. [Install the Cilium CLI](https://docs.cilium.io/en/latest/gettingstarted/k8s-install-default/#install-the-cilium-cli)
 
 ---
 
-## 🌐 Step 1: Define environment variables in .env file
+## 🌐 Step 1: Configure Environment
+
 Create a .env file (see .env-example) and define all required variables.
 
 > **Important:**
 > `CONTROL_PLANE_ENDPOINT_HOST` must be set to the IP address used for the Kubernetes control plane.
 > **You can use either:**
+>
 > - **A new, pre-allocated Hetzner floating IP**
 > - **An existing IP address** already assigned to your Hetzner project
-
 
 ## 🧰 Step 2: Create Local Management Cluster
 
@@ -35,12 +38,27 @@ make management-cluster
 ```
 
 ## 🚀 Step 3: Create and Bootstrap K8s on Hetzner
+
 ```bash
 make workload-cluster
+```
+
+### To use metallb, flannel CNI, Traefik:
+
+```bash
 make workload-bootstrap
 ```
 
-## 🧪 Step 4 (Optional): Verify by accessing Traefik Dashboard
+### **OR**: [Cilium](https://cilium.io/) with kube-proxy replacement, L2Announcement, CiliumLoadBalancerIPPool and Gateway API:
+
+```bash
+make workload-cilium
+```
+
+## 🧪 Step 4 (Optional): TEST. Verify by accessing Traefik Dashboard **OR** Hubble UI(in case you picked Cilium on previous step)
+
+### Traefik test:
+
 ```bash
 export KUBECONFIG=workload-kubeconfig.yaml  # Default kubeconfig name generated for the workload cluster
 # Add ingressroute for Traefik Dashboard
@@ -51,18 +69,32 @@ TRAEFIK_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.status.loadBalanc
 echo "Dashboard URL: http://$TRAEFIK_IP/dashboard/"
 ```
 
+### Cilium Hubble UI expose via Gateway API test:
+
+- Start
+
+```bash
+make hubble-test-start
+```
+
+-Stop
+
+```bash
+make hubble-test-stop
+```
+
 > **Security Note**: This exposes the dashboard publicly. For production, add authentication.
-
-
 
 ## 🧹 Cleanup
 
 **Delete workload cluster on Hetzner**
+
 ```bash
 make delete-workload-cluster
 ```
 
 **Delete local management cluster**
+
 ```bash
 make delete-management-cluster
 ```

@@ -1,0 +1,7 @@
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: lb-global-pool
+spec:
+  blocks:
+    - cidr: "${CONTROL_PLANE_ENDPOINT_HOST}/32"
