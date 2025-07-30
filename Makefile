@@ -21,7 +21,18 @@ endif
 SHELL := /bin/bash
 MAKEFLAGS += --no-builtin-rules
 
+
 .PHONY: all workload-bootstrap management-cluster remove-taints  workload-cluster cni ccm metallb csi traefik cert-manager issuer delete-workload-cluster delete-management-cluster verify-env helm-init help
+
+# Default target
+# If no target is specified, show a message
+# and exit with an error code
+# This prevents running the Makefile without a target
+# and provides a clear message to the user
+.DEFAULT_GOAL := no_default
+no_default:
+	@echo "Please specify a target (e.g., make management-cluster)."
+	@exit 1
 
 # all: management-cluster workload-cluster remove-taints  ccm cni metallb csi traefik cert-manager issuer ## Create full cluster (management + workload + all addons)
 workload-bootstrap: remove-taints ccm cni metallb csi traefik cert-manager issuer  ## Install core components, metallb, traefik, cert-manager, issuer into workload cluster
